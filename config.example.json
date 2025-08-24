@@ -1,0 +1,7 @@
+{
+  "url": "https://example.com/product",
+  "cookie": "session=abc123; user=test",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+  "timeout": 30,
+  "retry_count": 3
+}

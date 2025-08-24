@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商品分类列表</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <style>
+    .category-title {
+      border-left: 4px solid #4CAF50;
+      padding-left: 10px;
+      margin: 1.5rem 0 1rem;
+    }
+    .product-item {
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+    }
+    .product-item:last-child {
+      border-bottom: none;
+    }
+    .packaged-tag {
+      display: inline-block;
+      background-color: #e3f2fd;
+      color: #1565c0;
+      font-size: 0.75rem;
+      padding: 0 4px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+    .tab-active {
+      border-color: #4CAF50;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .favorite-icon {
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    .favorite-icon.active {
+      color: #ff4444;
+    }
+    .favorites-entry {
+      position: relative;
+    }
+    .favorites-panel {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      width: 300px;
+      max-height: 400px;
+      overflow-y: auto;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 100;
+      padding: 1rem;
+      display: none;
+    }
+    .favorites-panel.active {
+      display: block;
+    }
+    .empty-favorites {
+      text-align: center;
+      padding: 2rem 0;
+      color: #999;
+    }
+    .clear-favorites {
+      color: #ff4444;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: opacity 0.2s;
+    }
+    .clear-favorites:hover {
+      opacity: 0.8;
+    }
+    .confirm-dialog {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      display: none;
+    }
+    .confirm-dialog.active {
+      display: flex;
+    }
+    .dialog-content {
+      background-color: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 300px;
+    }
+    .dialog-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 1.5rem;
+    }
+    .dialog-btn {
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn-cancel {
+      background-color: #f1f1f1;
+      color: #333;
+    }
+    .btn-cancel:hover {
+      background-color: #e0e0e0;
+    }
+    .btn-confirm {
+      background-color: #ff4444;
+      color: white;
+    }
+    .btn-confirm:hover {
+      background-color: #e03e3e;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 p-4">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-green-600">
+      <i class="fa fa-leaf mr-2"></i>新鲜蔬菜分类
+    </h1>
+    
+    <!-- 收藏查看入口 -->
+    <div class="favorites-entry">
+      <button id="favoritesBtn" class="flex items-center text-gray-600 hover:text-ff4444 transition-colors">
+        <i class="fa fa-heart-o text-xl mr-1"></i>
+        <span>我的收藏</span>
+        <span id="favoritesCount" class="ml-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+      </button>
+      
+      <!-- 收藏面板 -->
+      <div class="favorites-panel" id="favoritesPanel">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-lg font-semibold">我的收藏</h3>
+          <div>
+            <span class="clear-favorites" id="clearFavorites">
+              <i class="fa fa-trash-o mr-1"></i>清空
+            </span>
+            <button id="closeFavorites" class="text-gray-500 hover:text-gray-800 ml-2">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <div id="favoritesList" class="space-y-2">
+          <!-- 收藏商品将在这里动态显示 -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 确认对话框 -->
+  <div class="confirm-dialog" id="confirmDialog">
+    <div class="dialog-content">
+      <h4 class="font-medium text-lg mb-2">确认清空收藏？</h4>
+      <p class="text-gray-600 text-sm">此操作将删除所有收藏的商品，且无法恢复。</p>
+      <div class="dialog-buttons">
+        <div class="dialog-btn btn-cancel" id="cancelClear">取消</div>
+        <div class="dialog-btn btn-confirm" id="confirmClear">确认清空</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 分类标签页导航 -->
+  <div class="flex border-b mb-6 overflow-x-auto pb-2">
+    {{range $index, $category := .Categories}}
+    <button 
+      class="tab-btn px-4 py-2 mr-2 border-b-2 border-transparent"
+      data-category-index="{{$index}}"
+    >
+      {{$category.Name}}
+    </button>
+    {{end}}
+  </div>
+  
+  <!-- 分类内容区域 -->
+  {{range $index, $category := .Categories}}
+  <div class="category-content bg-white p-4 rounded-lg shadow-sm mb-6 {{if ne $index 0}}hidden{{end}}" 
+       data-category-index="{{$index}}">
+    <h2 class="category-title text-xl font-semibold text-gray-800">{{$category.Name}}</h2>
+    
+    <div class="product-list">
+      {{range .Products}}
+      <div class="product-item" data-product-id="{{.ID}}">
+        <div class="flex justify-between items-center">
+          <div>
+            <div>
+              <span class="font-medium">{{.Name}}</span>
+              {{if .IsPackaged}}
+                <span class="packaged-tag">盒装</span>
+              {{end}}
+            </div>
+            {{if ne .Spec ""}}
+              <div class="text-sm text-gray-600 mt-1">{{.Spec}}</div>
+            {{end}}
+            
+              <div class="text-xs text-gray-500 mt-1">价格: {{.Price | printf "%.2f"}}元</div>
+           
+          </div>
+          <div class="text-right flex items-center">
+            <div class="text-lg font-bold text-red-600 mr-4">{{.PricePerJin | printf "%.2f"}}{{.Unit}}</div>
+            <i class="fa fa-heart-o favorite-icon text-gray-400" aria-hidden="true" 
+               data-product-id="{{.ID}}"></i>
+          </div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  <script>
+    // 存储所有商品数据，用于在收藏面板中显示完整信息
+    let allProducts = [];
+    
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      // 获取所有标签和内容
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const categoryContents = document.querySelectorAll('.category-content');
+      
+      // 收集所有商品数据
+      collectAllProducts();
+      
+      // 初始化收藏状态
+      initFavorites();
+      // 初始化收藏面板
+      updateFavoritesPanel();
+      // 更新收藏数量
+      updateFavoritesCount();
+      
+      // 标签点击事件
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const index = this.getAttribute('data-category-index');
+          
+          // 更新标签样式
+          tabBtns.forEach(b => b.classList.remove('tab-active'));
+          this.classList.add('tab-active');
+          
+          // 显示对应内容
+          categoryContents.forEach(content => {
+            content.classList.add('hidden');
+          });
+          document.querySelector(`.category-content[data-category-index="${index}"]`).classList.remove('hidden');
+        });
+      });
+      
+      // 设置默认激活第一个标签
+      if (tabBtns.length > 0) {
+        tabBtns[0].classList.add('tab-active');
+      }
+      
+      // 收藏按钮点击事件
+      document.querySelectorAll('.favorite-icon').forEach(icon => {
+        icon.addEventListener('click', function() {
+          const productId = this.getAttribute('data-product-id');
+          toggleFavorite(productId, this);
+          updateFavoritesPanel(); // 更新收藏面板
+          updateFavoritesCount(); // 更新收藏数量
+        });
+      });
+      
+      // 收藏入口点击事件
+      const favoritesBtn = document.getElementById('favoritesBtn');
+      const favoritesPanel = document.getElementById('favoritesPanel');
+      const closeFavorites = document.getElementById('closeFavorites');
+      
+      favoritesBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        favoritesPanel.classList.toggle('active');
+      });
+      
+      // 关闭收藏面板
+      closeFavorites.addEventListener('click', function() {
+        favoritesPanel.classList.remove('active');
+      });
+      
+      // 点击页面其他地方关闭收藏面板
+      document.addEventListener('click', function() {
+        favoritesPanel.classList.remove('active');
+      });
+      
+      // 阻止收藏面板内部点击事件冒泡
+      favoritesPanel.addEventListener('click', function(e) {
+        e.stopPropagation();
+      });
+      
+      // 清空收藏按钮点击事件
+      const clearFavorites = document.getElementById('clearFavorites');
+      const confirmDialog = document.getElementById('confirmDialog');
+      const cancelClear = document.getElementById('cancelClear');
+      const confirmClear = document.getElementById('confirmClear');
+      
+      clearFavorites.addEventListener('click', function() {
+        const favorites = getFavorites();
+        if (favorites.length > 0) {
+          confirmDialog.classList.add('active');
+        }
+      });
+      
+      // 取消清空
+      cancelClear.addEventListener('click', function() {
+        confirmDialog.classList.remove('active');
+      });
+      
+      // 确认清空
+      confirmClear.addEventListener('click', function() {
+        // 清空本地存储
+        localStorage.removeItem('productFavorites');
+        
+        // 更新所有收藏图标
+        document.querySelectorAll('.favorite-icon.active').forEach(icon => {
+          icon.classList.remove('fa-heart', 'active');
+          icon.classList.add('fa-heart-o');
+        });
+        
+        // 更新面板和计数
+        updateFavoritesPanel();
+        updateFavoritesCount();
+        
+        // 关闭对话框和收藏面板
+        confirmDialog.classList.remove('active');
+        favoritesPanel.classList.remove('active');
+      });
+    });
+    
+    // 收集所有商品数据
+    function collectAllProducts() {
+      // 从DOM中提取所有商品数据
+      document.querySelectorAll('.product-item').forEach(item => {
+        const productId = item.getAttribute('data-product-id');
+        const nameElem = item.querySelector('.font-medium');
+        const packagedElem = item.querySelector('.packaged-tag');
+        const specElem = item.querySelector('.text-sm.text-gray-600');
+        const priceElem = item.querySelector('.text-xs.text-gray-500');
+        const pricePerJinElem = item.querySelector('.text-lg.font-bold.text-red-600');
+        
+        allProducts.push({
+          id: productId,
+          name: nameElem ? nameElem.textContent : '',
+          isPackaged: packagedElem !== null,
+          spec: specElem ? specElem.textContent : '',
+          price: priceElem ? priceElem.textContent : '',
+          pricePerJin: pricePerJinElem ? pricePerJinElem.textContent : ''
+        });
+      });
+    }
+    
+    // 初始化收藏状态
+    function initFavorites() {
+      const favorites = getFavorites();
+      favorites.forEach(productId => {
+        const icon = document.querySelector(`.favorite-icon[data-product-id="${productId}"]`);
+        if (icon) {
+          icon.classList.remove('fa-heart-o');
+          icon.classList.add('fa-heart', 'active');
+        }
+      });
+    }
+    
+    // 获取本地存储的收藏列表
+    function getFavorites() {
+      const favorites = localStorage.getItem('productFavorites');
+      return favorites ? JSON.parse(favorites) : [];
+    }
+    
+    // 切换商品收藏状态
+    function toggleFavorite(productId, iconElement) {
+      const favorites = getFavorites();
+      const index = favorites.indexOf(productId);
+      
+      if (index > -1) {
+        // 取消收藏
+        favorites.splice(index, 1);
+        iconElement.classList.remove('fa-heart', 'active');
+        iconElement.classList.add('fa-heart-o');
+      } else {
+        // 添加收藏
+        favorites.push(productId);
+        iconElement.classList.remove('fa-heart-o');
+        iconElement.classList.add('fa-heart', 'active');
+      }
+      
+      // 保存到本地存储
+      localStorage.setItem('productFavorites', JSON.stringify(favorites));
+    }
+    
+    // 更新收藏面板内容
+    function updateFavoritesPanel() {
+      const favoritesList = document.getElementById('favoritesList');
+      const favorites = getFavorites();
+      
+      // 清空面板
+      favoritesList.innerHTML = '';
+      
+      // 如果没有收藏商品
+      if (favorites.length === 0) {
+        favoritesList.innerHTML = `
+          <div class="empty-favorites">
+            <i class="fa fa-heart-o text-4xl mb-2"></i>
+            <p>暂无收藏商品</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // 显示收藏的商品
+      favorites.forEach(productId => {
+        // 查找商品信息
+        const product = allProducts.find(p => p.id === productId);
+        if (product) {
+          const productItem = document.createElement('div');
+          productItem.className = 'product-item flex justify-between items-center';
+          productItem.innerHTML = `
+            <div>
+              <div>
+                <span class="font-medium">${product.name}</span>
+                ${product.isPackaged ? '<span class="packaged-tag">盒装</span>' : ''}
+              </div>
+              ${product.spec ? `<div class="text-sm text-gray-600 mt-1">${product.spec}</div>` : ''}
+              <div class="text-xs text-gray-500 mt-1">${product.price}</div>
+            </div>
+            <div class="text-right flex items-center">
+              <div class="text-lg font-bold text-red-600 mr-4">${product.pricePerJin}</div>
+              <i class="fa fa-heart favorite-icon active text-ff4444" aria-hidden="true" 
+                 data-product-id="${product.id}"></i>
+            </div>
+          `;
+          
+          // 添加取消收藏事件
+          const icon = productItem.querySelector('.favorite-icon');
+          icon.addEventListener('click', function() {
+            toggleFavorite(product.id, icon);
+            updateFavoritesPanel();
+            updateFavoritesCount();
+          });
+          
+          favoritesList.appendChild(productItem);
+        }
+      });
+    }
+    
+    // 更新收藏数量显示
+    function updateFavoritesCount() {
+      const countElem = document.getElementById('favoritesCount');
+      const count = getFavorites().length;
+      countElem.textContent = count;
+      
+      // 隐藏数量为0的标记
+      if (count === 0) {
+        countElem.classList.add('hidden');
+      } else {
+        countElem.classList.remove('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
