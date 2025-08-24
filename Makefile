@@ -1,4 +1,4 @@
-# 金城蔬菜价格查询工具 Makefile
+# 晋城蔬菜价格查询工具 Makefile
 
 .PHONY: build run test clean help
 
@@ -72,7 +72,7 @@ go-test:
 
 # 显示帮助信息
 help:
-	@echo "金城蔬菜价格查询工具 - Makefile 帮助"
+	@echo "晋城蔬菜价格查询工具 - Makefile 帮助"
 	@echo ""
 	@echo "可用命令:"
 	@echo "  build    构建程序 (默认)"
